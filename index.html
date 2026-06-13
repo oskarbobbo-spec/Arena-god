@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Arena God</title>
+  <style>
+    :root {
+      --bg:       #080f1e;
+      --bg2:      #0d1a30;
+      --gold:     #c8aa6e;
+      --gold-dim: rgba(200,170,110,0.45);
+      --gold-faint: rgba(200,170,110,0.07);
+      --muted:    rgba(200,170,110,0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--gold);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Watermark ── */
+    #wm {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: clamp(72px, 22vw, 220px);
+      font-weight: 900;
+      color: rgba(200,170,110,0.032);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 0;
+      letter-spacing: 0.06em;
+      line-height: 1.05;
+      text-align: center;
+      user-select: none;
+      text-transform: uppercase;
+    }
+
+    /* ── Progress bar ── */
+    #prog {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #c8aa6e 0%, #f0d898 60%, #c8aa6e 100%);
+      transition: width 0.4s ease;
+      z-index: 100;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 28px 16px 10px;
+    }
+
+    header h1 {
+      font-size: clamp(1.9rem, 7vw, 3.2rem);
+      font-weight: 900;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      background: linear-gradient(160deg, #f0d898 0%, #c8aa6e 50%, #a07840 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 18px rgba(200,170,110,0.35));
+    }
+
+    #stats {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    #stats b { color: var(--gold); }
+
+    /* ── Controls ── */
+    .controls {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 12px 6px;
+    }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+    .filters button {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--muted);
+      padding: 6px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      transition: all 0.18s;
+    }
+    .filters button:hover { border-color: var(--gold); color: var(--gold); }
+    .filters button.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #061020;
+      font-weight: 700;
+    }
+
+    #search {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(200,170,110,0.25);
+      color: var(--gold);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.88rem;
+      width: min(300px, 90vw);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #search:focus { border-color: var(--gold); }
+    #search::placeholder { color: rgba(200,170,110,0.3); }
+
+    /* ── Champion grid ── */
+    #grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 6px;
+      padding: 12px;
+    }
+
+    /* ── Champion card ── */
+    .champ {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 8px;
+      padding: 6px 3px 5px;
+      border: 2px solid transparent;
+      transition: transform 0.1s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      position: relative;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .champ:active { transform: scale(0.92); }
+
+    .champ.won {
+      border-color: var(--gold);
+      background: rgba(200,170,110,0.09);
+      box-shadow: 0 0 14px rgba(200,170,110,0.18), inset 0 0 8px rgba(200,170,110,0.06);
+    }
+
+    .champ:not(.won):hover {
+      border-color: rgba(200,170,110,0.28);
+      background: rgba(200,170,110,0.04);
+    }
+
+    .champ img {
+      width: 60px;
+      height: 60px;
+      border-radius: 5px;
+      border: 2px solid #1a2c44;
+      display: block;
+      transition: filter 0.2s, border-color 0.2s;
+      background: #0d1a30;
+    }
+
+    .champ:not(.won) img {
+      filter: brightness(0.38) saturate(0.2);
+    }
+
+    .champ.won img {
+      border-color: var(--gold);
+      filter: brightness(1.05) saturate(1.1);
+    }
+
+    /* Checkmark badge */
+    .badge {
+      position: absolute;
+      top: 4px; right: 4px;
+      background: var(--gold);
+      color: #061020;
+      border-radius: 50%;
+      width: 17px; height: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 900;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+
+    .champ.won .badge { opacity: 1; }
+
+    .champ .name {
+      font-size: 0.58rem;
+      text-align: center;
+      margin-top: 4px;
+      color: rgba(200,170,110,0.45);
+      transition: color 0.15s;
+      max-width: 74px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+
+    .champ.won .name { color: var(--gold); }
+
+    /* ── Bottom bar ── */
+    .bottom {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 20px 16px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-reset {
+      background: transparent;
+      border: 1px solid rgba(255,80,80,0.4);
+      color: rgba(255,100,100,0.65);
+      padding: 7px 22px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover {
+      background: rgba(255,60,60,0.1);
+      border-color: #ff5555;
+      color: #ff6666;
+    }
+
+    .import-label {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--muted);
+      padding: 7px 22px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      transition: all 0.2s;
+    }
+    .import-label:hover { border-color: var(--gold); color: var(--gold); }
+    #import-file { display: none; }
+
+    /* ── Empty state ── */
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: var(--bg2);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      padding: 9px 22px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      z-index: 200;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div id="wm">ARENA<br>GOD</div>
+<div id="prog"></div>
+
+<header>
+  <h1>Arena God</h1>
+  <div id="stats">Laddar...</div>
+</header>
+
+<div class="controls">
+  <div class="filters">
+    <button class="active" data-f="all"       onclick="setFilter('all')">Alla</button>
+    <button               data-f="remaining"  onclick="setFilter('remaining')">Kvarstående</button>
+    <button               data-f="won"        onclick="setFilter('won')">Vunna</button>
+  </div>
+  <input id="search" type="search" placeholder="Sök champion…" oninput="render()">
+</div>
+
+<div id="grid"></div>
+
+<div class="bottom">
+  <label class="import-label">
+    Importera wins.json
+    <input id="import-file" type="file" accept=".json,.txt" onchange="importFile(event)">
+  </label>
+  <button class="btn-reset" onclick="resetAll()">Rensa alla vinster</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const CHAMPIONS = [
+    "Aatrox","Ahri","Akali","Alistar","Ambessa","Amumu","Anivia","Annie","Aphelios",
+    "Ashe","Aurelion Sol","Aurora","Azir","Bard","Bel'Veth","Blitzcrank","Brand","Braum","Briar",
+    "Caitlyn","Camille","Cassiopeia","Cho'Gath","Corki","Darius","Diana","Dr. Mundo",
+    "Draven","Ekko","Elise","Evelynn","Ezreal","Fiddlesticks","Fiora","Fizz",
+    "Galio","Gangplank","Garen","Gnar","Gragas","Graves","Gwen","Hecarim","Heimerdinger",
+    "Hwei","Illaoi","Irelia","Ivern","Janna","Jarvan IV","Jax","Jayce","Jhin","Jinx",
+    "K'Sante","Kai'Sa","Kalista","Karma","Karthus","Kassadin","Katarina","Kayle","Kayn","Kennen",
+    "Kha'Zix","Kindred","Kled","Kog'Maw","LeBlanc","Lee Sin","Leona","Lillia","Lissandra",
+    "Lucian","Lulu","Lux","Malphite","Malzahar","Maokai","Master Yi","Mel","Milio","Miss Fortune",
+    "Mordekaiser","Morgana","Naafiri","Nami","Nasus","Nautilus","Neeko","Nidalee","Nilah","Nocturne",
+    "Nunu & Willump","Olaf","Orianna","Ornn","Pantheon","Poppy","Pyke","Qiyana","Quinn",
+    "Rakan","Rammus","Rek'Sai","Renata Glasc","Renekton","Rengar","Riven","Rumble","Ryze","Samira",
+    "Sejuani","Senna","Seraphine","Sett","Shaco","Shen","Shyvana","Singed","Sion",
+    "Sivir","Skarner","Smolder","Sona","Soraka","Swain","Sylas","Syndra","Tahm Kench","Taliyah",
+    "Talon","Taric","Teemo","Thresh","Tristana","Trundle","Tryndamere","Twisted Fate",
+    "Twitch","Udyr","Urgot","Varus","Vayne","Veigar","Vel'Koz","Vex","Vi","Viego",
+    "Viktor","Vladimir","Volibear","Warwick","Wukong","Xayah","Xerath","Xin Zhao",
+    "Yasuo","Yone","Yorick","Yuumi","Zaahen","Zac","Zed","Zeri","Ziggs","Zilean","Zoe","Zyra"
+  ];
+
+  // Display name → Data Dragon key
+  const KEY_MAP = {
+    "Aurelion Sol":  "AurelionSol",
+    "Bel'Veth":      "Belveth",
+    "Cho'Gath":      "Chogath",
+    "Dr. Mundo":     "DrMundo",
+    "Jarvan IV":     "JarvanIV",
+    "Kai'Sa":        "Kaisa",
+    "K'Sante":       "KSante",
+    "Kha'Zix":       "Khazix",
+    "Kog'Maw":       "KogMaw",
+    "LeBlanc":       "Leblanc",
+    "Lee Sin":       "LeeSin",
+    "Master Yi":     "MasterYi",
+    "Miss Fortune":  "MissFortune",
+    "Nunu & Willump":"Nunu",
+    "Rek'Sai":       "RekSai",
+    "Renata Glasc":  "Renata",
+    "Tahm Kench":    "TahmKench",
+    "Twisted Fate":  "TwistedFate",
+    "Vel'Koz":       "Velkoz",
+    "Wukong":        "MonkeyKing",
+    "Xin Zhao":      "XinZhao",
+  };
+
+  function ddKey(name) {
+    return KEY_MAP[name] || name.replace(/['\s.&]/g, '');
+  }
+
+  let ddVer  = '15.1.1';
+  let wins   = new Set(JSON.parse(localStorage.getItem('arena-wins') || '[]'));
+  let filter = 'all';
+
+  async function init() {
+    try {
+      const r = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+      [ddVer] = await r.json();
+    } catch (_) {}
+    render();
+  }
+
+  function iconUrl(name) {
+    return `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/champion/${ddKey(name)}.png`;
+  }
+
+  function fallback(img) {
+    img.onerror = null;
+    img.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">` +
+              `<rect width="60" height="60" fill="%230d1a30" rx="5"/>` +
+              `<text x="30" y="38" text-anchor="middle" fill="%23c8aa6e" font-size="24" font-family="sans-serif">?</text></svg>`;
+  }
+
+  function toggle(name) {
+    if (wins.has(name)) {
+      wins.delete(name);
+      toast(`${name} borttagen`);
+    } else {
+      wins.add(name);
+      toast(`${name} markerad som vinst!`);
+    }
+    persist();
+    render();
+  }
+
+  function persist() {
+    localStorage.setItem('arena-wins', JSON.stringify([...wins]));
+  }
+
+  function setFilter(f) {
+    filter = f;
+    document.querySelectorAll('.filters button').forEach(b =>
+      b.classList.toggle('active', b.dataset.f === f));
+    render();
+  }
+
+  function render() {
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    let list = [...CHAMPIONS];
+    if (filter === 'remaining') list = list.filter(c => !wins.has(c));
+    else if (filter === 'won')  list = list.filter(c =>  wins.has(c));
+    if (q) list = list.filter(c => c.toLowerCase().includes(q));
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+
+    if (!list.length) {
+      grid.innerHTML = '<div class="empty">Inga champions hittades</div>';
+    } else {
+      const frag = document.createDocumentFragment();
+      list.forEach(name => {
+        const won = wins.has(name);
+        const div = document.createElement('div');
+        div.className = 'champ' + (won ? ' won' : '');
+        div.innerHTML =
+          `<div class="badge">✓</div>` +
+          `<img src="${iconUrl(name)}" alt="${name}" loading="lazy" onerror="fallback(this)">` +
+          `<div class="name">${name}</div>`;
+        div.addEventListener('click', () => toggle(name));
+        frag.appendChild(div);
+      });
+      grid.appendChild(frag);
+    }
+
+    // Stats
+    document.getElementById('stats').innerHTML =
+      `<b>${wins.size}</b> / ${CHAMPIONS.length} champions vunna`;
+
+    // Progress bar
+    document.getElementById('prog').style.width =
+      (wins.size / CHAMPIONS.length * 100).toFixed(2) + '%';
+  }
+
+  function resetAll() {
+    if (!confirm('Rensa alla markerade vinster?')) return;
+    wins.clear();
+    persist();
+    render();
+  }
+
+  function importFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        let names = JSON.parse(ev.target.result);
+        if (!Array.isArray(names)) throw new Error();
+        let added = 0;
+        names.forEach(n => {
+          const match = CHAMPIONS.find(c => c.toLowerCase() === n.toLowerCase().trim());
+          if (match && !wins.has(match)) { wins.add(match); added++; }
+        });
+        persist(); render();
+        toast(`Importerade ${added} vinster`);
+      } catch (_) {
+        alert('Kunde inte läsa filen.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  init();
+</script>
+</body>
+</html>
